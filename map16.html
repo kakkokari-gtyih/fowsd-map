@@ -125,12 +125,11 @@
         fetch("./data/N03-23_27_230101.geojson")
             .then((response) => response.json())
             .then((data) => {
-                const filtered = data.features.filter((f) => f.properties.N03_004 === '堺市中区');
+                const filtered = data.features.filter((f) => f.properties.N03_004 === '大阪市住吉区');
                 const selectedAreaLayer = L.geoJSON(filtered);
                 selectedAreaLayer.bindPopup((layer) => layer.feature.properties.N03_004);
                 map.addLayer(selectedAreaLayer);
                 layerControl.addOverlay(selectedAreaLayer, '行政区域');
-                map.fitBounds(selectedAreaLayer.getBounds());
             });
 
         // ローカルPC上のOSRMサーバで杉本キャンパスからなかもずキャンパスまでのルートを検索するURL (16)
