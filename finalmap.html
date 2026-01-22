@@ -20,10 +20,12 @@
     <body>
         <!-- 地図を表示するdiv要素を宣言 -->
         <div id="map" style="height: 80vh"></div>
+        <button id="moveToCurrentPosBtn">現在地へ移動</button>
+        <button id="goToMorinomiyaFromCurrentPosBtn">ここから森之宮キャンパスまでのルート</button>
         <script>
             // 地図インスタンスを初期化
             const map = L.map('map', {
-                center: [34.54557, 135.50681], // 初期表示の地図中心の[緯度, 経度]
+                center: [34.687272, 135.525819], // 初期表示の地図中心の[緯度, 経度]
                 zoom: 16, // 初期ズームレベル
             });
             // 背景レイヤーインスタンスを初期化
@@ -55,26 +57,37 @@
             const nakamozuMarker = L.marker([34.544789, 135.506229]).bindPopup('中百舌鳥キャンパスC5棟');
             map.addLayer(nakamozuMarker);
 
-            // ローカルPC上のOSRMサーバで杉本キャンパスからなかもずキャンパスまでのルートを検索するURL (16)
-            const url = 'https://routing.openstreetmap.de/routed-car/route/v1/driving/135.505276,34.592331;135.506274,34.544865?geometries=geojson&overview=full'
+            // 現在地へ移動ボタンの処理
+            const moveToCurrentPosBtn = document.getElementById('moveToCurrentPosBtn');
+            moveToCurrentPosBtn.addEventListener('click', async () => {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    map.setView([lat, lon], 16);
+                }, null, { enableHighAccuracy: true });
+            });
 
-            async function addRouteLayer() {
-                const response = await fetch(url);
-                const json = await response.json();
-                routeLayer = L.geoJSON(json['routes'][0]['geometry'], {
-                    "color": "#FF00FF",
-                    "weight": 6,
-                    "opacity": 0.65
-                });
-                routeLayer.addTo(map);
-
-                // 地図をルートに合うように調整
-                const bounds = routeLayer.getBounds();
-                map.fitBounds(bounds);
-
-            }
-            // 地図にルートを追加
-            addRouteLayer();
+            // 森之宮キャンパスへのルート表示ボタンの処理
+            const MORINOMIYA_LAT = 34.687037;
+            const MORINOMIYA_LON = 135.539086;
+            const goToMorinomiyaFromCurrentPosBtn = document.getElementById('goToMorinomiyaFromCurrentPosBtn');
+            goToMorinomiyaFromCurrentPosBtn.addEventListener('click', async () => {
+                navigator.geolocation.getCurrentPosition(async (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    const routeUrl = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${lon},${lat};${MORINOMIYA_LON},${MORINOMIYA_LAT}?geometries=geojson&overview=full`;
+                    const response = await fetch(routeUrl);
+                    const json = await response.json();
+                    const routeLayer = L.geoJSON(json['routes'][0]['geometry'], {
+                        "color": "#0000FF",
+                        "weight": 6,
+                        "opacity": 0.65
+                    });
+                    routeLayer.addTo(map);
+                    // ルート全体が見えるように地図の表示範囲を調整
+                    map.fitBounds(routeLayer.getBounds());
+                }, null, { enableHighAccuracy: true });
+            });
         </script>
     </body>
 </html>
