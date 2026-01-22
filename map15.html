@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>1.地図タイルを背景として表示する</title>
+    <meta charset="utf-8" />
+    <!-- LeafletのCSS読み込み -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+        integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+        crossorigin="" />
+    <!-- LeafletのJavaScript読み込み -->
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+        integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+        crossorigin=""></script>
+    <!-- マーカークラスター -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+    <!-- KML -->
+    <script src="./assets/L.KML.js"></script>
+    <!-- 雨雲レイヤーのJavaScript/CSS読み込み -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/mwasil/Leaflet.Rainviewer/leaflet.rainviewer.css" />
+    <script src="https://cdn.jsdelivr.net/gh/mwasil/Leaflet.Rainviewer/leaflet.rainviewer.js"></script>
+</head>
+
+<body>
+    <!-- 地図を表示するdiv要素を宣言 -->
+    <div id="map" style="height: 80vh"></div>
+    <script>
+        // 地図インスタンスを初期化
+        const map = L.map('map', {
+            center: [34.54557, 135.50681], // 初期表示の地図中心の[緯度, 経度]
+            zoom: 16, // 初期ズームレベル
+        });
+        // 背景レイヤーインスタンスを初期化
+        const osmLayer = L.tileLayer(
+            'https://tile.openstreetmap.org/{z}/{x}/{y}.png', // OSMのURLテンプレート
+            {
+                maxZoom: 19,
+                attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            },
+        );
+        map.addLayer(osmLayer);
+        const chiriinLayer = L.tileLayer(
+            'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', // GSIのURLテンプレート
+            {
+                minZoom: 5,
+                maxZoom: 18,
+                attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
+            },
+        );
+        map.addLayer(chiriinLayer);
+
+        // レイヤーコントロール
+        const layerControl = L.control.layers({
+            'OpenStreetMap': osmLayer,
+            '地理院地図（標準）': chiriinLayer,
+        });
+        layerControl.addTo(map);
+
+        // スケールバー
+        L.control.scale().addTo(map);
+
+        // ピン定義
+        const nakamozuMarker = L.marker([34.544789, 135.506229]).bindPopup('中百舌鳥キャンパスC5棟');
+        map.addLayer(nakamozuMarker);
+
+        // GeoJSON (11)
+        map.attributionControl.addAttribution('<a href"https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-P29-v2_0.html">国土数値情報（学校データ）</a>');
+        fetch('./data/P29-21_27.geojson')
+            .then((response) => response.json())
+            .then((geojsonData) => {
+                // クラスターグループ (11-2)
+                const markers = L.markerClusterGroup();
+                const schoolLayer = L.geoJSON(geojsonData, {
+                    onEachFeature: (feature, layer) => {
+                        layer.bindPopup(feature.properties.P29_004);
+                        markers.addLayer(layer);
+                    },
+                });
+                markers.bindPopup((layer) => layer.feature.properties.P29_004);
+                map.addLayer(markers);
+                layerControl.addOverlay(markers, '学校');
+            });
+
+        // KML (11-3)
+        fetch('./data/niigata_route.kml')
+            .then((response) => response.text())
+            .then((kmlText) => {
+                const parser = new DOMParser();
+                const kml = parser.parseFromString(kmlText, 'text/xml');
+                const kmlLayer = new L.KML(kml);
+                map.addLayer(kmlLayer);
+            });
+
+        // GeoJSON (13)
+        fetch('./data/line.geojson')
+            .then((response) => response.json())
+            .then((geojsonData) => {
+                const lineLayer = L.geoJSON(geojsonData, {
+                    style: {
+                        color: 'red',
+                        weight: 3,
+                    },
+                });
+                lineLayer.bindPopup((layer) => layer.feature.properties.name);
+                map.addLayer(lineLayer);
+                layerControl.addOverlay(lineLayer, 'ルート');
+            });
+
+        // 雨雲レイヤー (14)
+        const rainViewerLayer = L.control.rainviewer({
+            position: 'bottomleft',
+            nextButtonText: '>',
+            playStopButtonText: 'Play/Stop',
+            prevButtonText: '<',
+            positionSliderLabelText: 'Hour:',
+            opacitySliderLabelText: 'Opacity:',
+            animationInterval: 500,
+            opacity: 0.5,
+        });
+        rainViewerLayer.addTo(map);
+
+        // 行政区域GeoJSON (15)
+        fetch("./data/N03-23_27_230101.geojson")
+            .then((response) => response.json())
+            .then((data) => {
+                const filtered = data.features.filter((f) => f.properties.N03_004 === '堺市中区');
+                const selectedAreaLayer = L.geoJSON(filtered);
+                selectedAreaLayer.bindPopup((layer) => layer.feature.properties.N03_004);
+                map.addLayer(selectedAreaLayer);
+                layerControl.addOverlay(selectedAreaLayer, '行政区域');
+                map.fitBounds(selectedAreaLayer.getBounds());
+            });
+    </script>
+</body>
+
+</html>
