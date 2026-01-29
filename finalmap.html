@@ -66,21 +66,23 @@
             const loadingIndicatorEl = document.getElementById('loadingIndicator');
 
             function getCurrentPosition() {
+                loadingIndicatorEl.textContent = '現在地を取得中...';
                 return new Promise((resolve, reject) => {
-                    navigator.geolocation.getCurrentPosition(resolve, reject);
+                    navigator.geolocation.getCurrentPosition((p) => {
+                        loadingIndicatorEl.textContent = '';
+                        resolve(p);
+                    }, reject);
                 });
             }
 
             // 現在地へ移動ボタン
             const moveToCurrentPosBtn = document.getElementById('moveToCurrentPosBtn');
             moveToCurrentPosBtn.addEventListener('click', async () => {
-                loadingIndicatorEl.textContent = '現在地を取得中...';
                 const { coords } = await getCurrentPosition();
                 const lat = coords.latitude;
                 const lon = coords.longitude;
                 map.setView([lat, lon], 16);
                 L.marker([lat, lon]).addTo(map).bindPopup('現在地').openPopup();
-                loadingIndicatorEl.textContent = '';
             });
 
             const places = {
