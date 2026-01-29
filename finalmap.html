@@ -66,7 +66,7 @@
             const loadingIndicatorEl = document.getElementById('loadingIndicator');
 
             function getCurrentPosition() {
-                loadingIndicatorEl.textContent = '現在地を取得中...';
+                loadingIndicatorEl.textContent = '現在地を取得中。10秒ほどかかる場合があります...';
                 return new Promise((resolve, reject) => {
                     navigator.geolocation.getCurrentPosition((p) => {
                         loadingIndicatorEl.textContent = '';
