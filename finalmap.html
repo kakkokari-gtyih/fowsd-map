@@ -20,8 +20,14 @@
     <body>
         <!-- 地図を表示するdiv要素を宣言 -->
         <div id="map" style="height: 80vh"></div>
-        <button id="moveToCurrentPosBtn">現在地へ移動</button>
-        <button id="goToMorinomiyaFromCurrentPosBtn">ここから森之宮キャンパスまでのルート</button>
+        <p><button id="moveToCurrentPosBtn">現在地へ移動</button></p>
+        <p>
+            <button id="goToMorinomiyaFromCurrentPosBtn">現在地から森之宮キャンパスまでのルート</button>
+            <button id="goToNakamozuFromCurrentPosBtn">現在地から中百舌鳥キャンパスまでのルート</button>
+            <button id="goToSugimotoFromCurrentPosBtn">現在地から杉本キャンパスまでのルート</button>
+            <button id="goToAbenoFromCurrentPosBtn">現在地からあべのキャンパスまでのルート</button>
+        </p>
+        <p id="loadingIndicator"></p>
         <script>
             // 地図インスタンスを初期化
             const map = L.map('map', {
@@ -57,36 +63,106 @@
             const nakamozuMarker = L.marker([34.544789, 135.506229]).bindPopup('中百舌鳥キャンパスC5棟');
             map.addLayer(nakamozuMarker);
 
-            // 現在地へ移動ボタンの処理
+            const loadingIndicatorEl = document.getElementById('loadingIndicator');
+
+            function getCurrentPosition() {
+                return new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject);
+                });
+            }
+
+            // 現在地へ移動ボタン
             const moveToCurrentPosBtn = document.getElementById('moveToCurrentPosBtn');
             moveToCurrentPosBtn.addEventListener('click', async () => {
-                navigator.geolocation.getCurrentPosition((position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-                    map.setView([lat, lon], 16);
-                }, null, { enableHighAccuracy: true });
+                loadingIndicatorEl.textContent = '現在地を取得中...';
+                const { coords } = await getCurrentPosition();
+                const lat = coords.latitude;
+                const lon = coords.longitude;
+                map.setView([lat, lon], 16);
+                L.marker([lat, lon]).addTo(map).bindPopup('現在地').openPopup();
+                loadingIndicatorEl.textContent = '';
             });
 
-            // 森之宮キャンパスへのルート表示ボタンの処理
-            const MORINOMIYA_LAT = 34.687037;
-            const MORINOMIYA_LON = 135.539086;
-            const goToMorinomiyaFromCurrentPosBtn = document.getElementById('goToMorinomiyaFromCurrentPosBtn');
-            goToMorinomiyaFromCurrentPosBtn.addEventListener('click', async () => {
-                navigator.geolocation.getCurrentPosition(async (position) => {
+            const places = {
+                morinomiya: {
+                    lat: 34.687037,
+                    lon: 135.539086,
+                },
+                nakamozu: {
+                    lat: 34.544789,
+                    lon: 135.506229,
+                },
+                sugimoto: {
+                    lat: 34.592331,
+                    lon: 135.505276,
+                },
+                abeno: {
+                    lat: 34.646673,
+                    lon: 135.509598,
+                },
+            };
+
+            let routeLayer = null;
+
+            function clearRoute() {
+                if (routeLayer != null && map.hasLayer(routeLayer)) {
+                    map.removeLayer(routeLayer);
+                    routeLayer = null;
+                }
+            }
+
+            async function showRoute(to) {
+                if (to == null || places[to] == null) {
+                    alert('この場所へのルートは設定されていません。');
+                    return;
+                }
+
+                clearRoute();
+
+                try {
+                    const position = await getCurrentPosition();
+                    loadingIndicatorEl.textContent = 'ルートを取得中...';
                     const lat = position.coords.latitude;
                     const lon = position.coords.longitude;
-                    const routeUrl = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${lon},${lat};${MORINOMIYA_LON},${MORINOMIYA_LAT}?geometries=geojson&overview=full`;
+                    const routeUrl = `https://routing.openstreetmap.de/routed-car/route/v1/driving/${lon},${lat};${places[to].lon},${places[to].lat}?geometries=geojson&overview=full`;
                     const response = await fetch(routeUrl);
+                    if (!response.ok) {
+                        loadingIndicatorEl.textContent = 'ルートの取得に失敗しました。';
+                        throw new Error('ルートの取得に失敗しました。');
+                    }
                     const json = await response.json();
-                    const routeLayer = L.geoJSON(json['routes'][0]['geometry'], {
+                    routeLayer = L.geoJSON(json['routes'][0]['geometry'], {
                         "color": "#0000FF",
                         "weight": 6,
                         "opacity": 0.65
                     });
                     routeLayer.addTo(map);
+                    loadingIndicatorEl.textContent = '';
                     // ルート全体が見えるように地図の表示範囲を調整
                     map.fitBounds(routeLayer.getBounds());
-                }, null, { enableHighAccuracy: true });
+                } catch (error) {
+                    alert(error.message);
+                }
+            }
+
+            const goToMorinomiyaFromCurrentPosBtn = document.getElementById('goToMorinomiyaFromCurrentPosBtn');
+            goToMorinomiyaFromCurrentPosBtn.addEventListener('click', () => {
+                showRoute('morinomiya');
+            });
+
+            const goToNakamozuFromCurrentPosBtn = document.getElementById('goToNakamozuFromCurrentPosBtn');
+            goToNakamozuFromCurrentPosBtn.addEventListener('click', () => {
+                showRoute('nakamozu');
+            });
+
+            const goToSugimotoFromCurrentPosBtn = document.getElementById('goToSugimotoFromCurrentPosBtn');
+            goToSugimotoFromCurrentPosBtn.addEventListener('click', () => {
+                showRoute('sugimoto');
+            });
+
+            const goToAbenoFromCurrentPosBtn = document.getElementById('goToAbenoFromCurrentPosBtn');
+            goToAbenoFromCurrentPosBtn.addEventListener('click', () => {
+                showRoute('abeno');
             });
         </script>
     </body>
